@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import StartScreen from './components/StartScreen'
 import QuizScreen from './components/QuizScreen'
 import ExplainScreen from './components/ExplainScreen'
@@ -9,10 +9,14 @@ export default function App() {
   const [screen, setScreen] = useState('start')
   const [quizData, setQuizData] = useState(null)
   const [userAnswer, setUserAnswer] = useState(null)
-  const [explainData, setExplainData] = useState(null)
   const [settings, setSettings] = useState({ category: '', difficulty: 'normal' })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+
+  // アプリ起動時にバックエンドをウォームアップ（スリープ解除）
+  useEffect(() => {
+    fetch(`${API_URL}/warmup`).catch(() => {})
+  }, [])
 
   const handleStart = async ({ category, difficulty }) => {
     setSettings({ category, difficulty })
@@ -28,7 +32,6 @@ export default function App() {
       const data = await res.json()
       setQuizData(data)
       setUserAnswer(null)
-      setExplainData(null)
       setScreen('quiz')
     } catch (e) {
       setError(e.message || 'エラーが発生しました')
@@ -37,31 +40,10 @@ export default function App() {
     }
   }
 
-  const handleAnswer = async (choiceIndex) => {
+  // 回答時：解説はすでにquizDataに含まれているので即座に解説画面へ
+  const handleAnswer = (choiceIndex) => {
     setUserAnswer(choiceIndex)
-    setLoading(true)
-    setError('')
-    try {
-      const res = await fetch(`${API_URL}/explain`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          question: quizData.question,
-          choices: quizData.choices,
-          correct_index: quizData.correct_index,
-          user_answer_index: choiceIndex,
-          category: settings.category,
-        }),
-      })
-      if (!res.ok) throw new Error('解説の取得に失敗しました')
-      const data = await res.json()
-      setExplainData(data)
-      setScreen('explain')
-    } catch (e) {
-      setError(e.message || 'エラーが発生しました')
-    } finally {
-      setLoading(false)
-    }
+    setScreen('explain')
   }
 
   const handleRetry = () => { handleStart(settings) }
@@ -69,7 +51,6 @@ export default function App() {
   const handleBackToStart = () => {
     setScreen('start')
     setQuizData(null)
-    setExplainData(null)
     setUserAnswer(null)
     setError('')
   }
@@ -93,8 +74,16 @@ export default function App() {
           </div>
         )}
         {screen === 'start' && <StartScreen onStart={handleStart} loading={loading} />}
-        {screen === 'quiz' && quizData && <QuizScreen quizData={quizData} onAnswer={handleAnswer} loading={loading} onBack={handleBackToStart} />}
-        {screen === 'explain' && explainData && <ExplainScreen quizData={quizData} explainData={explainData} userAnswer={userAnswer} onRetry={handleRetry} onBack={handleBackToStart} loading={loading} />}
+        {screen === 'quiz' && quizData && <QuizScreen quizData={quizData} onAnswer={handleAnswer} onBack={handleBackToStart} />}
+        {screen === 'explain' && quizData && (
+          <ExplainScreen
+            quizData={quizData}
+            userAnswer={userAnswer}
+            onRetry={handleRetry}
+            onBack={handleBackToStart}
+            loading={loading}
+          />
+        )}
       </main>
 
       <footer style={{ borderTop: '1px solid #c8b89a', marginTop: 60, padding: '24px' }}>
