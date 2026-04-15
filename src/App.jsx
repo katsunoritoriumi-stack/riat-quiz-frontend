@@ -40,10 +40,39 @@ export default function App() {
     }
   }
 
-  // 回答時：解説はすでにquizDataに含まれているので即座に解説画面へ
-  const handleAnswer = (choiceIndex) => {
+  // 回答時：解説がない場合は /explain を呼び出してから解説画面へ
+  const handleAnswer = async (choiceIndex) => {
     setUserAnswer(choiceIndex)
     setScreen('explain')
+    if (!quizData.explanation) {
+      setLoading(true)
+      try {
+        const res = await fetch(`${API_URL}/explain`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            question: quizData.question,
+            choices: quizData.choices,
+            answer_index: quizData.answer_index,
+            user_answer_index: choiceIndex,
+            explanation: '',
+            source_urls: quizData.source_urls,
+            source_titles: quizData.source_titles,
+            context: quizData.context,
+          }),
+        })
+        if (res.ok) {
+          const data = await res.json()
+          if (data.explanation) {
+            setQuizData(prev => ({ ...prev, explanation: data.explanation }))
+          }
+        }
+      } catch (e) {
+        // 解説取得失敗は無視
+      } finally {
+        setLoading(false)
+      }
+    }
   }
 
   const handleRetry = () => { handleStart(settings) }
