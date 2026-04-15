@@ -39,6 +39,7 @@ export default function App() {
       const data = await res.json()
       setQuizData(data)
       setUserAnswer(null)
+      setError('')
       setScreen('quiz')
     } catch (e) {
       setError(e.message || 'エラーが発生しました')
