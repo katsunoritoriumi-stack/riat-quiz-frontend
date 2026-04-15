@@ -57,7 +57,7 @@ export default function ExplainScreen({ quizData, userAnswer, onRetry, onBack, l
           <span style={{ fontFamily: "'Shippori Mincho', serif", fontSize: '0.9rem', color: 'var(--ink)', letterSpacing: '0.08em' }}>解説</span>
         </div>
         <div style={{ background: 'var(--aged)', padding: '24px 28px', border: '1px solid #c8b89a' }}>
-          <p style={{ lineHeight: 2, fontSize: '0.92rem', color: 'var(--ink)', margin: 0, whiteSpace: 'pre-wrap' }}>
+          <p className={!explanation ? 'animate-pulse' : ''} style={{ lineHeight: 2, fontSize: '0.92rem', color: 'var(--ink)', margin: 0, whiteSpace: 'pre-wrap' }}>
             {explanation || '解説を読み込み中...'}
           </p>
         </div>
