@@ -5,6 +5,13 @@ import ExplainScreen from './components/ExplainScreen'
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://riat-quiz-app.onrender.com'
 
+const fetchWithTimeout = (url, options = {}, timeout = 90000) => {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeout);
+  return fetch(url, { ...options, signal: controller.signal })
+    .finally(() => clearTimeout(timer));
+};
+
 export default function App() {
   const [screen, setScreen] = useState('start')
   const [quizData, setQuizData] = useState(null)
@@ -15,7 +22,7 @@ export default function App() {
 
   // アプリ起動時にバックエンドをウォームアップ（スリープ解除）
   useEffect(() => {
-    fetch(`${API_URL}/warmup`).catch(() => {})
+    fetchWithTimeout(`${API_URL}/warmup`).catch(() => {})
   }, [])
 
   const handleStart = async ({ category, difficulty }) => {
@@ -23,7 +30,7 @@ export default function App() {
     setLoading(true)
     setError('')
     try {
-      const res = await fetch(`${API_URL}/generate-quiz`, {
+      const res = await fetchWithTimeout(`${API_URL}/generate-quiz`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ category, difficulty }),
@@ -47,7 +54,7 @@ export default function App() {
     if (!quizData.explanation) {
       setLoading(true)
       try {
-        const res = await fetch(`${API_URL}/explain`, {
+        const res = await fetchWithTimeout(`${API_URL}/explain`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
