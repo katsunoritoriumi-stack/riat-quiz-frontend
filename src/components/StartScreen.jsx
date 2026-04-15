@@ -2,13 +2,12 @@ import { useState } from 'react'
 
 const CATEGORIES = [
   { value: '', label: 'おまかせ（ランダム）' },
-  { value: '数秘術', label: '数秘術' },
-  { value: '姓名判断', label: '姓名判断' },
-  { value: '波動', label: '波動・エネルギー' },
-  { value: '宇宙', label: '宇宙・スピリチュアル' },
-  { value: '量子', label: '量子論・意識' },
-  { value: '健康', label: '健康・ヒーリング' },
-  { value: '哲学', label: '哲学・思想' },
+  { value: '陰陽論・生命哲学', label: '陰陽論・生命哲学' },
+  { value: '宇宙・銀河の歴史', label: '宇宙・銀河の歴史' },
+  { value: '宇宙医学・健康', label: '宇宙医学・健康' },
+  { value: 'ウイルス・感染症', label: 'ウイルス・感染症' },
+  { value: '日本・龍神島の歴史', label: '日本・龍神島の歴史' },
+  { value: '天体・地球環境', label: '天体・地球環境' },
 ]
 
 const DIFFICULTIES = [
