@@ -32,7 +32,7 @@ export default function StartScreen({ onStart, loading, loadingMessage }) {
           ── RIAT BLOG QUIZ ──
         </div>
         <h1 style={{ fontFamily: "'Shippori Mincho', serif", fontSize: 'clamp(2rem, 6vw, 3rem)', fontWeight: 800, color: 'var(--ink)', lineHeight: 1.2, marginBottom: 16 }}>
-          理論の知を<br />問う一問
+          哲理の知を問う
         </h1>
         <p style={{ color: 'var(--muted)', fontSize: '0.9rem', lineHeight: 1.8 }}>
           407件のRIATブログ記事から<br />
