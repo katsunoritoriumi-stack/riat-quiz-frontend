@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import StartScreen from './components/StartScreen'
 import QuizScreen from './components/QuizScreen'
 import ExplainScreen from './components/ExplainScreen'
@@ -20,10 +20,28 @@ export default function App() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
+  const nextQuizRef = useRef(null)
+  const prefetchPromiseRef = useRef(null)
+
   // アプリ起動時にバックエンドをウォームアップ（スリープ解除）
   useEffect(() => {
     fetchWithTimeout(`${API_URL}/warmup`).catch(() => {})
   }, [])
+
+  // explain画面表示中にバックグラウンドで次の問題を先読み
+  useEffect(() => {
+    if (screen !== 'explain') return
+    nextQuizRef.current = null
+    const promise = fetchWithTimeout(`${API_URL}/generate-quiz`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ category: settings.category, difficulty: settings.difficulty }),
+    })
+      .then(res => res.ok ? res.json() : null)
+      .then(data => { nextQuizRef.current = data })
+      .catch(() => {})
+    prefetchPromiseRef.current = promise
+  }, [screen])
 
   const handleStart = async ({ category, difficulty }) => {
     setSettings({ category, difficulty })
@@ -83,7 +101,34 @@ export default function App() {
     }
   }
 
-  const handleRetry = () => { handleStart(settings) }
+  const handleRetry = async () => {
+    setLoading(true)
+    setError('')
+    try {
+      let data = null
+      if (nextQuizRef.current) {
+        data = nextQuizRef.current
+      } else if (prefetchPromiseRef.current) {
+        await prefetchPromiseRef.current
+        data = nextQuizRef.current
+      }
+      if (data) {
+        nextQuizRef.current = null
+        prefetchPromiseRef.current = null
+        setQuizData(data)
+        setUserAnswer(null)
+        setError('')
+        setScreen('quiz')
+        setLoading(false)
+      } else {
+        setLoading(false)
+        handleStart(settings)
+      }
+    } catch (e) {
+      setLoading(false)
+      handleStart(settings)
+    }
+  }
 
   const handleBackToStart = () => {
     setScreen('start')
