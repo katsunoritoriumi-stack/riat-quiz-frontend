@@ -30,9 +30,9 @@ export default function App() {
 
   const fillQueue = async (category, difficulty) => {
     if (isFillingQueueRef.current) return
-    if (quizQueueRef.current.length >= 3) return
+    if (quizQueueRef.current.length >= 5) return
     isFillingQueueRef.current = true
-    const needed = 3 - quizQueueRef.current.length
+    const needed = 5 - quizQueueRef.current.length
     console.log(`[queue] 補充開始 (${needed}問)`)
     const promises = Array.from({ length: needed }, () =>
       fetchWithTimeout(`${API_URL}/generate-quiz`, {
@@ -47,6 +47,25 @@ export default function App() {
     results.forEach(data => {
       if (data) quizQueueRef.current.push(data)
     })
+    const retries = results
+      .map((r, i) => r === null ? i : null)
+      .filter(i => i !== null)
+    if (retries.length > 0) {
+      console.log(`[queue] リトライ (${retries.length}問)`)
+      const retryPromises = retries.map(() =>
+        fetchWithTimeout(`${API_URL}/generate-quiz`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ category, difficulty }),
+        })
+        .then(res => res.ok ? res.json() : null)
+        .catch(() => null)
+      )
+      const retryResults = await Promise.all(retryPromises)
+      retryResults.forEach(data => {
+        if (data) quizQueueRef.current.push(data)
+      })
+    }
     console.log(`[queue] 補充完了 (キュー残数: ${quizQueueRef.current.length})`)
     isFillingQueueRef.current = false
   }
@@ -108,7 +127,7 @@ export default function App() {
 
   const handleRetry = async () => {
     // キューが残り1問以下ならバックグラウンドで補充
-    if (quizQueueRef.current.length <= 1) {
+    if (quizQueueRef.current.length <= 2) {
       fillQueue(settings.category, settings.difficulty)
     }
 
