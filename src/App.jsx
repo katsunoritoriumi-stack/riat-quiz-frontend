@@ -32,13 +32,17 @@ export default function App() {
   useEffect(() => {
     if (screen !== 'explain') return
     nextQuizRef.current = null
+    console.log('[prefetch] 開始')
     const promise = fetchWithTimeout(`${API_URL}/generate-quiz`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ category: settings.category, difficulty: settings.difficulty }),
     })
       .then(res => res.ok ? res.json() : null)
-      .then(data => { nextQuizRef.current = data })
+      .then(data => {
+        nextQuizRef.current = data
+        console.log('[prefetch] 完了')
+      })
       .catch(() => {})
     prefetchPromiseRef.current = promise
   }, [screen])
@@ -113,6 +117,7 @@ export default function App() {
         data = nextQuizRef.current
       }
       if (data) {
+        console.log('[prefetch] キャッシュ使用')
         nextQuizRef.current = null
         prefetchPromiseRef.current = null
         setQuizData(data)
@@ -121,6 +126,7 @@ export default function App() {
         setScreen('quiz')
         setLoading(false)
       } else {
+        console.log('[prefetch] キャッシュなし、API呼び出し')
         setLoading(false)
         handleStart(settings)
       }
