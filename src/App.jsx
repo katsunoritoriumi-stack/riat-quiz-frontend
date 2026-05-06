@@ -86,6 +86,7 @@ export default function App() {
       setUserAnswer(null)
       setError('')
       setScreen('quiz')
+      setTimeout(() => window.scrollTo({ top: 0, behavior: 'instant' }), 0)
 
       refillOne(category, difficulty)
       refillOne(category, difficulty)
@@ -99,6 +100,7 @@ export default function App() {
   const handleAnswer = async (choiceIndex) => {
     setUserAnswer(choiceIndex)
     setScreen('explain')
+    setTimeout(() => window.scrollTo({ top: 0, behavior: 'instant' }), 0)
     if (!quizData.explanation) {
       setLoading(true)
       try {
@@ -139,6 +141,7 @@ export default function App() {
       setUserAnswer(null)
       setError('')
       setScreen('quiz')
+      setTimeout(() => window.scrollTo({ top: 0, behavior: 'instant' }), 0)
 
       refillOne(settings.category, settings.difficulty)
     } else {
@@ -157,6 +160,7 @@ export default function App() {
         setUserAnswer(null)
         setError('')
         setScreen('quiz')
+        setTimeout(() => window.scrollTo({ top: 0, behavior: 'instant' }), 0)
 
         refillOne(settings.category, settings.difficulty)
       } catch (e) {
