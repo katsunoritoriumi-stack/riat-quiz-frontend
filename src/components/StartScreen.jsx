@@ -16,7 +16,7 @@ const DIFFICULTIES = [
   { value: 'hard', label: '上級', desc: '深い理解が必要' },
 ]
 
-export default function StartScreen({ onStart, loading }) {
+export default function StartScreen({ onStart, loading, loadingMessage }) {
   const [category, setCategory] = useState('')
   const [difficulty, setDifficulty] = useState('normal')
 
@@ -98,7 +98,7 @@ export default function StartScreen({ onStart, loading }) {
         >
           {loading ? (
             <>
-              <span>AIがクイズを生成中</span>
+              <span>{loadingMessage || 'AIがクイズを生成中'}</span>
               <span><span className="loading-dot">．</span><span className="loading-dot">．</span><span className="loading-dot">．</span></span>
             </>
           ) : (

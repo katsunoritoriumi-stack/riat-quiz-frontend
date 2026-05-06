@@ -20,58 +20,47 @@ export default function App() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
-  const nextQuizRef = useRef(null)
-  const prefetchPromiseRef = useRef(null)
-  const prefetchStartedRef = useRef(false)  // 先読み開始済みフラグ
+  const quizQueueRef = useRef([])
+  const isFillingQueueRef = useRef(false)
 
   // アプリ起動時にバックエンドをウォームアップ
   useEffect(() => {
     fetchWithTimeout(`${API_URL}/warmup`).catch(() => {})
   }, [])
 
-  // 問題表示中にバックグラウンドで次の問題を先読み
-  useEffect(() => {
-    if (screen !== 'quiz') return
-    if (prefetchStartedRef.current) return  // すでに開始済みなら何もしない
-
-    prefetchStartedRef.current = true  // フラグを立てる
-    console.log('[prefetch] 先読み開始')
-
-    const promise = fetchWithTimeout(`${API_URL}/generate-quiz`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ category: settings.category, difficulty: settings.difficulty }),
-    })
+  const fillQueue = async (category, difficulty) => {
+    if (isFillingQueueRef.current) return
+    if (quizQueueRef.current.length >= 3) return
+    isFillingQueueRef.current = true
+    const needed = 3 - quizQueueRef.current.length
+    console.log(`[queue] 補充開始 (${needed}問)`)
+    const promises = Array.from({ length: needed }, () =>
+      fetchWithTimeout(`${API_URL}/generate-quiz`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ category, difficulty }),
+      })
       .then(res => res.ok ? res.json() : null)
-      .then(data => {
-        if (data) {
-          nextQuizRef.current = data
-          console.log('[prefetch] 先読み完了')
-        }
-      })
-      .catch(() => {
-        console.log('[prefetch] 先読み失敗')
-      })
-
-    prefetchPromiseRef.current = promise
-  }, [screen, settings])
+      .catch(() => null)
+    )
+    const results = await Promise.all(promises)
+    results.forEach(data => {
+      if (data) quizQueueRef.current.push(data)
+    })
+    console.log(`[queue] 補充完了 (キュー残数: ${quizQueueRef.current.length})`)
+    isFillingQueueRef.current = false
+  }
 
   const handleStart = async ({ category, difficulty }) => {
     setSettings({ category, difficulty })
     setLoading(true)
     setError('')
-    // 先読みフラグをリセット
-    prefetchStartedRef.current = false
-    nextQuizRef.current = null
-    prefetchPromiseRef.current = null
+    quizQueueRef.current = []
+    isFillingQueueRef.current = false
     try {
-      const res = await fetchWithTimeout(`${API_URL}/generate-quiz`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ category, difficulty }),
-      })
-      if (!res.ok) throw new Error('クイズの生成に失敗しました')
-      const data = await res.json()
+      await fillQueue(category, difficulty)
+      const data = quizQueueRef.current.shift()
+      if (!data) throw new Error('クイズの生成に失敗しました')
       setQuizData(data)
       setUserAnswer(null)
       setError('')
@@ -118,64 +107,47 @@ export default function App() {
   }
 
   const handleRetry = async () => {
-    setLoading(true)
-    setError('')
+    // キューが残り1問以下ならバックグラウンドで補充
+    if (quizQueueRef.current.length <= 1) {
+      fillQueue(settings.category, settings.difficulty)
+    }
 
-    // 先読みフラグをリセット（次の問題用）
-    prefetchStartedRef.current = false
-
-    try {
-      // 先読みデータがすでにある場合
-      if (nextQuizRef.current) {
-        console.log('[prefetch] キャッシュ使用')
-        const data = nextQuizRef.current
-        nextQuizRef.current = null
-        prefetchPromiseRef.current = null
+    if (quizQueueRef.current.length > 0) {
+      // キューから即座に取り出す（待ち時間0）
+      console.log(`[queue] キャッシュ使用 (残数: ${quizQueueRef.current.length - 1})`)
+      const data = quizQueueRef.current.shift()
+      setQuizData(data)
+      setUserAnswer(null)
+      setError('')
+      setScreen('quiz')
+    } else {
+      // キューが空の場合は通常API呼び出し
+      console.log('[queue] キュー空、API呼び出し')
+      setLoading(true)
+      setError('')
+      try {
+        const res = await fetchWithTimeout(`${API_URL}/generate-quiz`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(settings),
+        })
+        if (!res.ok) throw new Error('クイズの生成に失敗しました')
+        const data = await res.json()
         setQuizData(data)
         setUserAnswer(null)
         setError('')
-        setLoading(false)
         setScreen('quiz')
-        return
+      } catch (e) {
+        setError(e.message || 'エラーが発生しました')
+      } finally {
+        setLoading(false)
       }
-
-      // 先読み取得中の場合は完了を待つ
-      if (prefetchPromiseRef.current) {
-        console.log('[prefetch] 取得中、待機します')
-        await prefetchPromiseRef.current
-        if (nextQuizRef.current) {
-          console.log('[prefetch] 待機後キャッシュ使用')
-          const data = nextQuizRef.current
-          nextQuizRef.current = null
-          prefetchPromiseRef.current = null
-          setQuizData(data)
-          setUserAnswer(null)
-          setError('')
-          setLoading(false)
-          setScreen('quiz')
-          return
-        }
-      }
-
-      // 先読みがない場合は通常API呼び出し
-      console.log('[prefetch] キャッシュなし、API呼び出し')
-      nextQuizRef.current = null
-      prefetchPromiseRef.current = null
-      setLoading(false)
-      await handleStart(settings)
-
-    } catch (e) {
-      nextQuizRef.current = null
-      prefetchPromiseRef.current = null
-      setLoading(false)
-      await handleStart(settings)
     }
   }
 
   const handleBackToStart = () => {
-    prefetchStartedRef.current = false
-    nextQuizRef.current = null
-    prefetchPromiseRef.current = null
+    quizQueueRef.current = []
+    isFillingQueueRef.current = false
     setScreen('start')
     setQuizData(null)
     setUserAnswer(null)
@@ -200,7 +172,13 @@ export default function App() {
             ⚠ {error}
           </div>
         )}
-        {screen === 'start' && <StartScreen onStart={handleStart} loading={loading} />}
+        {screen === 'start' && (
+          <StartScreen
+            onStart={handleStart}
+            loading={loading}
+            loadingMessage="問題を3問準備中..."
+          />
+        )}
         {screen === 'quiz' && quizData && <QuizScreen quizData={quizData} onAnswer={handleAnswer} onBack={handleBackToStart} />}
         {screen === 'explain' && quizData && (
           <ExplainScreen
