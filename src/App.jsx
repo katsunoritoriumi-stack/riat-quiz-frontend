@@ -200,7 +200,7 @@ export default function App() {
           <StartScreen
             onStart={handleStart}
             loading={loading}
-            loadingMessage="問題を3問準備中..."
+            loadingMessage="問題を準備中..."
           />
         )}
         {screen === 'quiz' && quizData && <QuizScreen quizData={quizData} onAnswer={handleAnswer} onBack={handleBackToStart} />}
