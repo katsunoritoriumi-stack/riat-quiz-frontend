@@ -28,9 +28,9 @@ export default function App() {
     fetchWithTimeout(`${API_URL}/warmup`).catch(() => {})
   }, [])
 
-  // explain画面表示中にバックグラウンドで次の問題を先読み
+  // 問題表示中にバックグラウンドで次の問題を先読み
   useEffect(() => {
-    if (screen !== 'explain') return
+    if (screen !== 'quiz') return
     nextQuizRef.current = null
     console.log('[prefetch] 先読み開始')
     const promise = fetchWithTimeout(`${API_URL}/generate-quiz`, {
