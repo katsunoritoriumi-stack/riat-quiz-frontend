@@ -29,7 +29,7 @@ export default function StartScreen({ onStart, loading, loadingMessage }) {
       {/* タイトルブロック */}
       <div className="animate-fade-up" style={{ textAlign: 'center', marginBottom: 48 }}>
         <div style={{ fontSize: '0.75rem', letterSpacing: '0.3em', color: 'var(--gold)', marginBottom: 16, fontFamily: "'Shippori Mincho', serif" }}>
-          ── RIAT BLOG QUIZ ──
+          ── Increase the number of N-loops. ──
         </div>
         <h1 style={{ fontFamily: "'Shippori Mincho', serif", fontSize: 'clamp(2rem, 6vw, 3rem)', fontWeight: 800, color: 'var(--ink)', lineHeight: 1.2, marginBottom: 16 }}>
           哲理の知を問う
