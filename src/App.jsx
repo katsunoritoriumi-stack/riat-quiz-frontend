@@ -22,8 +22,9 @@ export default function App() {
 
   const nextQuizRef = useRef(null)
   const prefetchPromiseRef = useRef(null)
+  const prefetchStartedRef = useRef(false)  // 先読み開始済みフラグ
 
-  // アプリ起動時にバックエンドをウォームアップ（スリープ解除）
+  // アプリ起動時にバックエンドをウォームアップ
   useEffect(() => {
     fetchWithTimeout(`${API_URL}/warmup`).catch(() => {})
   }, [])
@@ -31,8 +32,11 @@ export default function App() {
   // 問題表示中にバックグラウンドで次の問題を先読み
   useEffect(() => {
     if (screen !== 'quiz') return
-    nextQuizRef.current = null
+    if (prefetchStartedRef.current) return  // すでに開始済みなら何もしない
+
+    prefetchStartedRef.current = true  // フラグを立てる
     console.log('[prefetch] 先読み開始')
+
     const promise = fetchWithTimeout(`${API_URL}/generate-quiz`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -40,17 +44,26 @@ export default function App() {
     })
       .then(res => res.ok ? res.json() : null)
       .then(data => {
-        nextQuizRef.current = data
-        console.log('[prefetch] 先読み完了', data)
+        if (data) {
+          nextQuizRef.current = data
+          console.log('[prefetch] 先読み完了')
+        }
       })
-      .catch(() => {})
+      .catch(() => {
+        console.log('[prefetch] 先読み失敗')
+      })
+
     prefetchPromiseRef.current = promise
-  }, [screen])
+  }, [screen, settings])
 
   const handleStart = async ({ category, difficulty }) => {
     setSettings({ category, difficulty })
     setLoading(true)
     setError('')
+    // 先読みフラグをリセット
+    prefetchStartedRef.current = false
+    nextQuizRef.current = null
+    prefetchPromiseRef.current = null
     try {
       const res = await fetchWithTimeout(`${API_URL}/generate-quiz`, {
         method: 'POST',
@@ -70,7 +83,6 @@ export default function App() {
     }
   }
 
-  // 回答時：解説がない場合は /explain を呼び出してから解説画面へ
   const handleAnswer = async (choiceIndex) => {
     setUserAnswer(choiceIndex)
     setScreen('explain')
@@ -106,38 +118,64 @@ export default function App() {
   }
 
   const handleRetry = async () => {
-    console.log('[prefetch] nextQuizRef.current =', nextQuizRef.current)
     setLoading(true)
     setError('')
+
+    // 先読みフラグをリセット（次の問題用）
+    prefetchStartedRef.current = false
+
     try {
-      let data = null
+      // 先読みデータがすでにある場合
       if (nextQuizRef.current) {
-        data = nextQuizRef.current
-      } else if (prefetchPromiseRef.current) {
-        await prefetchPromiseRef.current
-        data = nextQuizRef.current
-      }
-      if (data) {
         console.log('[prefetch] キャッシュ使用')
+        const data = nextQuizRef.current
         nextQuizRef.current = null
         prefetchPromiseRef.current = null
         setQuizData(data)
         setUserAnswer(null)
         setError('')
+        setLoading(false)
         setScreen('quiz')
-        setLoading(false)
-      } else {
-        console.log('[prefetch] キャッシュなし、API呼び出し')
-        setLoading(false)
-        handleStart(settings)
+        return
       }
-    } catch (e) {
+
+      // 先読み取得中の場合は完了を待つ
+      if (prefetchPromiseRef.current) {
+        console.log('[prefetch] 取得中、待機します')
+        await prefetchPromiseRef.current
+        if (nextQuizRef.current) {
+          console.log('[prefetch] 待機後キャッシュ使用')
+          const data = nextQuizRef.current
+          nextQuizRef.current = null
+          prefetchPromiseRef.current = null
+          setQuizData(data)
+          setUserAnswer(null)
+          setError('')
+          setLoading(false)
+          setScreen('quiz')
+          return
+        }
+      }
+
+      // 先読みがない場合は通常API呼び出し
+      console.log('[prefetch] キャッシュなし、API呼び出し')
+      nextQuizRef.current = null
+      prefetchPromiseRef.current = null
       setLoading(false)
-      handleStart(settings)
+      await handleStart(settings)
+
+    } catch (e) {
+      nextQuizRef.current = null
+      prefetchPromiseRef.current = null
+      setLoading(false)
+      await handleStart(settings)
     }
   }
 
   const handleBackToStart = () => {
+    prefetchStartedRef.current = false
+    nextQuizRef.current = null
+    prefetchPromiseRef.current = null
     setScreen('start')
     setQuizData(null)
     setUserAnswer(null)
