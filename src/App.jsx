@@ -32,7 +32,7 @@ export default function App() {
   useEffect(() => {
     if (screen !== 'explain') return
     nextQuizRef.current = null
-    console.log('[prefetch] 開始')
+    console.log('[prefetch] 先読み開始')
     const promise = fetchWithTimeout(`${API_URL}/generate-quiz`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -41,7 +41,7 @@ export default function App() {
       .then(res => res.ok ? res.json() : null)
       .then(data => {
         nextQuizRef.current = data
-        console.log('[prefetch] 完了')
+        console.log('[prefetch] 先読み完了', data)
       })
       .catch(() => {})
     prefetchPromiseRef.current = promise
@@ -106,6 +106,7 @@ export default function App() {
   }
 
   const handleRetry = async () => {
+    console.log('[prefetch] nextQuizRef.current =', nextQuizRef.current)
     setLoading(true)
     setError('')
     try {
