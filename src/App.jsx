@@ -1,178 +1,56 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import StartScreen from './components/StartScreen'
 import QuizScreen from './components/QuizScreen'
 import ExplainScreen from './components/ExplainScreen'
+import { loadPool, pickQuiz } from './quizPool'
 
-const API_URL = import.meta.env.VITE_API_URL || 'https://riat-quiz-app.onrender.com'
-
-const fetchWithTimeout = (url, options = {}, timeout = 90000) => {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeout);
-  return fetch(url, { ...options, signal: controller.signal })
-    .finally(() => clearTimeout(timer));
-};
+const scrollTop = () => setTimeout(() => window.scrollTo({ top: 0, behavior: 'instant' }), 0)
 
 export default function App() {
   const [screen, setScreen] = useState('start')
   const [quizData, setQuizData] = useState(null)
   const [userAnswer, setUserAnswer] = useState(null)
   const [settings, setSettings] = useState({ category: '', difficulty: 'normal' })
-  const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [pool, setPool] = useState(null)
 
-  const quizQueueRef = useRef([])
-
-  // アプリ起動時にバックエンドをウォームアップ
+  // 起動時に事前生成クイズプールを1回だけ読み込む（実行時はAPIを呼ばない）
   useEffect(() => {
-    fetchWithTimeout(`${API_URL}/warmup`).catch(() => {})
+    loadPool()
+      .then(setPool)
+      .catch(() => setError('クイズデータの読み込みに失敗しました。時間をおいて再読み込みしてください。'))
   }, [])
 
-  const refillOne = async (category, difficulty) => {
-    if (quizQueueRef.current.length >= 5) return
-    console.log('[queue] 1問補充開始')
-    try {
-      const res = await fetchWithTimeout(`${API_URL}/generate-quiz`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ category, difficulty }),
-      })
-      if (res.ok) {
-        const data = await res.json()
-        if (data) {
-          quizQueueRef.current.push(data)
-          console.log(`[queue] 1問補充完了 (キュー残数: ${quizQueueRef.current.length})`)
-        } else {
-          console.log('[queue] 補充失敗、リトライ')
-          const retryRes = await fetchWithTimeout(`${API_URL}/generate-quiz`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ category, difficulty }),
-          })
-          if (retryRes.ok) {
-            const retryData = await retryRes.json()
-            if (retryData) quizQueueRef.current.push(retryData)
-          }
-        }
-      }
-    } catch (e) {
-      console.log('[queue] 補充エラー')
+  const showQuiz = (category, difficulty) => {
+    const data = pickQuiz(pool, category, difficulty)
+    if (!data) {
+      setError('クイズが見つかりませんでした。データの読み込みをお待ちください。')
+      return
     }
-  }
-
-  const handleStart = async ({ category, difficulty }) => {
-    setSettings({ category, difficulty })
-    setLoading(true)
+    setQuizData(data)
+    setUserAnswer(null)
     setError('')
-    quizQueueRef.current = []
-    try {
-      const promises = Array.from({ length: 3 }, () =>
-        fetchWithTimeout(`${API_URL}/generate-quiz`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ category, difficulty }),
-        })
-        .then(res => res.ok ? res.json() : null)
-        .catch(() => null)
-      )
-      const results = await Promise.all(promises)
-      results.forEach(data => {
-        if (data) quizQueueRef.current.push(data)
-      })
-
-      const data = quizQueueRef.current.shift()
-      if (!data) throw new Error('クイズの生成に失敗しました')
-
-      setQuizData(data)
-      setUserAnswer(null)
-      setError('')
-      setScreen('quiz')
-      setTimeout(() => window.scrollTo({ top: 0, behavior: 'instant' }), 0)
-
-      refillOne(category, difficulty)
-      refillOne(category, difficulty)
-    } catch (e) {
-      setError(e.message || 'エラーが発生しました')
-    } finally {
-      setLoading(false)
-    }
+    setScreen('quiz')
+    scrollTop()
   }
 
-  const handleAnswer = async (choiceIndex) => {
+  const handleStart = ({ category, difficulty }) => {
+    setSettings({ category, difficulty })
+    showQuiz(category, difficulty)
+  }
+
+  // プールの問題は解説を含むので、そのまま解説画面へ
+  const handleAnswer = (choiceIndex) => {
     setUserAnswer(choiceIndex)
     setScreen('explain')
-    setTimeout(() => window.scrollTo({ top: 0, behavior: 'instant' }), 0)
-    if (!quizData.explanation) {
-      setLoading(true)
-      try {
-        const res = await fetchWithTimeout(`${API_URL}/explain`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            question: quizData.question,
-            choices: quizData.choices,
-            answer_index: quizData.answer_index,
-            user_answer_index: choiceIndex,
-            explanation: '',
-            source_urls: quizData.source_urls,
-            source_titles: quizData.source_titles,
-            context: quizData.context,
-          }),
-        })
-        if (res.ok) {
-          const data = await res.json()
-          if (data.explanation) {
-            setQuizData(prev => ({ ...prev, explanation: data.explanation }))
-          }
-        }
-      } catch (e) {
-        // 解説取得失敗は無視
-      } finally {
-        setLoading(false)
-      }
-    }
+    scrollTop()
   }
 
-  const handleRetry = async () => {
-    if (quizQueueRef.current.length > 0) {
-      const data = quizQueueRef.current.shift()
-      console.log(`[queue] キャッシュ使用 (残数: ${quizQueueRef.current.length})`)
-
-      setQuizData(data)
-      setUserAnswer(null)
-      setError('')
-      setScreen('quiz')
-      setTimeout(() => window.scrollTo({ top: 0, behavior: 'instant' }), 0)
-
-      refillOne(settings.category, settings.difficulty)
-    } else {
-      console.log('[queue] キュー空、API呼び出し')
-      setLoading(true)
-      setError('')
-      try {
-        const res = await fetchWithTimeout(`${API_URL}/generate-quiz`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(settings),
-        })
-        if (!res.ok) throw new Error('クイズの生成に失敗しました')
-        const data = await res.json()
-        setQuizData(data)
-        setUserAnswer(null)
-        setError('')
-        setScreen('quiz')
-        setTimeout(() => window.scrollTo({ top: 0, behavior: 'instant' }), 0)
-
-        refillOne(settings.category, settings.difficulty)
-      } catch (e) {
-        setError(e.message || 'エラーが発生しました')
-      } finally {
-        setLoading(false)
-      }
-    }
+  const handleRetry = () => {
+    showQuiz(settings.category, settings.difficulty)
   }
 
   const handleBackToStart = () => {
-    quizQueueRef.current = []
     setScreen('start')
     setQuizData(null)
     setUserAnswer(null)
@@ -199,7 +77,7 @@ export default function App() {
         {screen === 'start' && (
           <StartScreen
             onStart={handleStart}
-            loading={loading}
+            loading={!pool}
             loadingMessage="問題を準備中..."
           />
         )}
@@ -210,14 +88,14 @@ export default function App() {
             userAnswer={userAnswer}
             onRetry={handleRetry}
             onBack={handleBackToStart}
-            loading={loading}
+            loading={false}
           />
         )}
       </main>
 
       <footer style={{ borderTop: '1px solid #c8b89a', marginTop: 60, padding: '24px' }}>
         <div style={{ maxWidth: 640, margin: '0 auto', textAlign: 'center', color: 'var(--muted)', fontSize: '0.75rem', letterSpacing: '0.05em' }}>
-          <p>Powered by Gemini AI × Pinecone — RIATブログ 407記事より生成</p>
+          <p>Powered by Claude — RIATブログ 407記事より生成</p>
         </div>
       </footer>
     </div>
