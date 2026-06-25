@@ -1,16 +1,26 @@
-export default function QuizScreen({ quizData, onAnswer, loading, onBack }) {
+export default function QuizScreen({ quizData, onAnswer, onBack, current, total, categoryLabel, difficultyLabel }) {
   const { question, choices } = quizData
-
   const labels = ['A', 'B', 'C', 'D']
 
   return (
     <div>
-      {/* 問題ラベル */}
-      <div className="animate-fade-up" style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
-        <div style={{ width: 4, height: 32, background: 'var(--accent)', flexShrink: 0 }} />
-        <span style={{ fontFamily: "'Shippori Mincho', serif", fontSize: '0.85rem', color: 'var(--muted)', letterSpacing: '0.1em' }}>
-          問題
-        </span>
+      {/* 進捗 ＋ カテゴリ／難易度 */}
+      <div className="animate-fade-up" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, marginBottom: 20 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ width: 4, height: 32, background: 'var(--accent)', flexShrink: 0 }} />
+          <span style={{ fontFamily: "'Shippori Mincho', serif", fontSize: '1rem', color: 'var(--ink)', letterSpacing: '0.06em' }}>
+            問題 <strong style={{ color: 'var(--accent)' }}>{current}</strong> <span style={{ color: 'var(--muted)' }}>/ {total}</span>
+          </span>
+        </div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <span style={{ padding: '4px 10px', background: 'var(--aged)', border: '1px solid #c8b89a', fontSize: '0.72rem', color: 'var(--ink)', letterSpacing: '0.04em' }}>{categoryLabel}</span>
+          <span style={{ padding: '4px 10px', background: 'var(--aged)', border: '1px solid #c8b89a', fontSize: '0.72rem', color: 'var(--accent)', letterSpacing: '0.04em' }}>{difficultyLabel}</span>
+        </div>
+      </div>
+
+      {/* 進捗バー */}
+      <div className="animate-fade-up" style={{ height: 4, background: '#e6dcc8', marginBottom: 28 }}>
+        <div style={{ width: `${(current / total) * 100}%`, height: '100%', background: 'var(--accent)', transition: 'width 0.3s' }} />
       </div>
 
       {/* 問題文 */}
@@ -25,8 +35,7 @@ export default function QuizScreen({ quizData, onAnswer, loading, onBack }) {
         {choices.map((choice, i) => (
           <button
             key={i}
-            onClick={() => !loading && onAnswer(i)}
-            disabled={loading}
+            onClick={() => onAnswer(i)}
             className={`btn-choice animate-fade-up delay-${i + 1}`}
             style={{ padding: '16px 20px', display: 'flex', alignItems: 'flex-start', gap: 14, fontSize: '0.95rem', lineHeight: 1.6 }}
           >
@@ -44,20 +53,13 @@ export default function QuizScreen({ quizData, onAnswer, loading, onBack }) {
         ))}
       </div>
 
-      {loading && (
-        <div style={{ textAlign: 'center', marginTop: 32, color: 'var(--muted)', fontSize: '0.9rem' }}>
-          <span>解説を生成中</span>
-          <span><span className="loading-dot">．</span><span className="loading-dot">．</span><span className="loading-dot">．</span></span>
-        </div>
-      )}
-
-      {/* 戻るリンク */}
+      {/* 中断リンク */}
       <div style={{ textAlign: 'center', marginTop: 32 }}>
         <button
           onClick={onBack}
           style={{ background: 'none', border: 'none', color: 'var(--muted)', fontSize: '0.8rem', cursor: 'pointer', textDecoration: 'underline', letterSpacing: '0.05em' }}
         >
-          ← スタートに戻る
+          ← 中断してスタートに戻る
         </button>
       </div>
     </div>

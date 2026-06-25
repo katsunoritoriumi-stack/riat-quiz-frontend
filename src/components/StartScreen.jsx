@@ -102,15 +102,13 @@ export default function StartScreen({ onStart, loading, loadingMessage }) {
               <span><span className="loading-dot">．</span><span className="loading-dot">．</span><span className="loading-dot">．</span></span>
             </>
           ) : (
-            'クイズに挑戦する →'
+            '10問に挑戦する →'
           )}
         </button>
 
-        {loading && (
-          <p style={{ textAlign: 'center', fontSize: '0.75rem', color: 'var(--muted)', marginTop: 12 }}>
-            ※ 初回アクセスはサーバー起動に50秒ほどかかる場合があります
-          </p>
-        )}
+        <p style={{ textAlign: 'center', fontSize: '0.75rem', color: 'var(--muted)', marginTop: 14 }}>
+          全10問・解答後に採点結果が出ます
+        </p>
       </div>
 
       {/* 装飾 */}

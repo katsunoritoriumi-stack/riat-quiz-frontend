@@ -2,17 +2,23 @@ import { useState, useEffect } from 'react'
 import StartScreen from './components/StartScreen'
 import QuizScreen from './components/QuizScreen'
 import ExplainScreen from './components/ExplainScreen'
-import { loadPool, pickQuiz } from './quizPool'
+import ResultScreen from './components/ResultScreen'
+import { loadPool, pickQuizSet } from './quizPool'
+
+const SET_SIZE = 10
+const DIFFICULTY_LABELS = { easy: '初級', normal: '中級', hard: '上級' }
 
 const scrollTop = () => setTimeout(() => window.scrollTo({ top: 0, behavior: 'instant' }), 0)
 
 export default function App() {
   const [screen, setScreen] = useState('start')
-  const [quizData, setQuizData] = useState(null)
-  const [userAnswer, setUserAnswer] = useState(null)
   const [settings, setSettings] = useState({ category: '', difficulty: 'normal' })
   const [error, setError] = useState('')
   const [pool, setPool] = useState(null)
+
+  const [quizSet, setQuizSet] = useState([])
+  const [current, setCurrent] = useState(0)
+  const [answers, setAnswers] = useState([])   // 各問のユーザー選択インデックス
 
   // 起動時に事前生成クイズプールを1回だけ読み込む（実行時はAPIを呼ばない）
   useEffect(() => {
@@ -21,41 +27,57 @@ export default function App() {
       .catch(() => setError('クイズデータの読み込みに失敗しました。時間をおいて再読み込みしてください。'))
   }, [])
 
-  const showQuiz = (category, difficulty) => {
-    const data = pickQuiz(pool, category, difficulty)
-    if (!data) {
+  const startSet = (category, difficulty) => {
+    const set = pickQuizSet(pool, category, difficulty, SET_SIZE)
+    if (!set.length) {
       setError('クイズが見つかりませんでした。データの読み込みをお待ちください。')
       return
     }
-    setQuizData(data)
-    setUserAnswer(null)
+    setSettings({ category, difficulty })
+    setQuizSet(set)
+    setCurrent(0)
+    setAnswers([])
     setError('')
     setScreen('quiz')
     scrollTop()
   }
 
-  const handleStart = ({ category, difficulty }) => {
-    setSettings({ category, difficulty })
-    showQuiz(category, difficulty)
-  }
+  const handleStart = ({ category, difficulty }) => startSet(category, difficulty)
 
-  // プールの問題は解説を含むので、そのまま解説画面へ
   const handleAnswer = (choiceIndex) => {
-    setUserAnswer(choiceIndex)
+    setAnswers(prev => {
+      const next = prev.slice()
+      next[current] = choiceIndex
+      return next
+    })
     setScreen('explain')
     scrollTop()
   }
 
-  const handleRetry = () => {
-    showQuiz(settings.category, settings.difficulty)
+  const handleNext = () => {
+    if (current < quizSet.length - 1) {
+      setCurrent(current + 1)
+      setScreen('quiz')
+    } else {
+      setScreen('result')
+    }
+    scrollTop()
   }
+
+  const handleRestart = () => startSet(settings.category, settings.difficulty)
 
   const handleBackToStart = () => {
     setScreen('start')
-    setQuizData(null)
-    setUserAnswer(null)
+    setQuizSet([])
+    setCurrent(0)
+    setAnswers([])
     setError('')
   }
+
+  const difficultyLabel = DIFFICULTY_LABELS[settings.difficulty] || settings.difficulty
+  const categoryLabel = settings.category || 'おまかせ'
+  const currentQ = quizSet[current]
+  const score = answers.reduce((acc, a, i) => acc + (quizSet[i] && a === quizSet[i].answer_index ? 1 : 0), 0)
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--paper)' }}>
@@ -81,14 +103,38 @@ export default function App() {
             loadingMessage="問題を準備中..."
           />
         )}
-        {screen === 'quiz' && quizData && <QuizScreen quizData={quizData} onAnswer={handleAnswer} onBack={handleBackToStart} />}
-        {screen === 'explain' && quizData && (
-          <ExplainScreen
-            quizData={quizData}
-            userAnswer={userAnswer}
-            onRetry={handleRetry}
+        {screen === 'quiz' && currentQ && (
+          <QuizScreen
+            quizData={currentQ}
+            onAnswer={handleAnswer}
             onBack={handleBackToStart}
-            loading={false}
+            current={current + 1}
+            total={quizSet.length}
+            categoryLabel={categoryLabel}
+            difficultyLabel={difficultyLabel}
+          />
+        )}
+        {screen === 'explain' && currentQ && (
+          <ExplainScreen
+            quizData={currentQ}
+            userAnswer={answers[current]}
+            onNext={handleNext}
+            onBack={handleBackToStart}
+            isLast={current === quizSet.length - 1}
+            current={current + 1}
+            total={quizSet.length}
+          />
+        )}
+        {screen === 'result' && (
+          <ResultScreen
+            score={score}
+            total={quizSet.length}
+            quizSet={quizSet}
+            answers={answers}
+            categoryLabel={categoryLabel}
+            difficultyLabel={difficultyLabel}
+            onRestart={handleRestart}
+            onHome={handleBackToStart}
           />
         )}
       </main>
